@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Dreamhack Blue Whale | yjt0725</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0b1120;
+      color: #cbd5e1;
+      line-height: 1.8;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    nav {
+      border-bottom: 1px solid #1e293b;
+      background: rgba(11, 17, 32, 0.95);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .nav-container {
+      max-width: 900px;
+      margin: auto;
+      padding: 18px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-weight: 700;
+      color: white;
+    }
+
+    .back {
+      color: #38bdf8;
+    }
+
+    main {
+      max-width: 900px;
+      margin: auto;
+      padding: 70px 24px 120px;
+    }
+
+    .category {
+      color: #38bdf8;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      font-size: clamp(36px, 6vw, 56px);
+      line-height: 1.2;
+      color: white;
+      margin-bottom: 16px;
+    }
+
+    .subtitle {
+      font-size: 20px;
+      color: #94a3b8;
+      margin-bottom: 20px;
+    }
+
+    .meta {
+      color: #64748b;
+      margin-bottom: 45px;
+    }
+
+    .tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 45px;
+    }
+
+    .tag {
+      background: #172033;
+      color: #7dd3fc;
+      padding: 5px 11px;
+      border-radius: 20px;
+      font-size: 13px;
+    }
+
+    article {
+      border-top: 1px solid #1e293b;
+      padding-top: 40px;
+    }
+
+    h2 {
+      color: white;
+      font-size: 28px;
+      margin-top: 55px;
+      margin-bottom: 18px;
+    }
+
+    h3 {
+      color: white;
+      margin-top: 32px;
+      margin-bottom: 12px;
+    }
+
+    p {
+      margin-bottom: 18px;
+    }
+
+    strong {
+      color: #e2e8f0;
+    }
+
+    pre {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 18px;
+      margin: 20px 0;
+      overflow-x: auto;
+    }
+
+    code {
+      font-family: Consolas, monospace;
+      color: #7dd3fc;
+    }
+
+    .note {
+      background: #111827;
+      border-left: 4px solid #38bdf8;
+      padding: 18px 20px;
+      margin: 25px 0;
+      border-radius: 6px;
+    }
+
+    .flow {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 24px;
+      margin: 25px 0;
+      text-align: center;
+      color: #94a3b8;
+    }
+
+    footer {
+      border-top: 1px solid #1e293b;
+      padding: 30px;
+      text-align: center;
+      color: #64748b;
+    }
+  </style>
+</head>
+
+<body>
+
+<nav>
+  <div class="nav-container">
+    <a href="../index.html" class="logo">
+      yjt0725
+    </a>
+
+    <a href="../index.html#ctf" class="back">
+      ← CTF 목록으로
+    </a>
+  </div>
+</nav>
+
+
+<main>
+
+  <div class="category">
+    DREAMHACK · CTF WRITE-UP
+  </div>
+
+  <h1>Blue Whale</h1>
+
+  <p class="subtitle">
+    Docker Image의 Layer를 분석하여 삭제된 Flag의 흔적 찾기
+  </p>
+
+  <div class="meta">
+    2026.08.17 · yjt0725
+  </div>
+
+  <div class="tags">
+    <span class="tag">Docker</span>
+    <span class="tag">Docker Layer</span>
+    <span class="tag">Dive</span>
+    <span class="tag">Linux</span>
+    <span class="tag">CTF</span>
+  </div>
+
+
+  <article>
+
+    <h2>1. 문제</h2>
+
+    <p>
+      이번 문제의 목표는 주어진 Docker Image를 분석하여
+      삭제된 Flag를 찾아내는 것이었다.
+    </p>
+
+    <p>
+      처음에는 Docker Container를 실행해서 내부 파일을 찾는 문제라고
+      생각했지만, 문제에서 <strong>dive</strong>라는 힌트가 주어졌다.
+    </p>
+
+    <div class="note">
+      이 문제의 핵심은 최종 Container가 아니라
+      <strong>Docker Image의 이전 Layer</strong>를 분석하는 것이다.
+    </div>
+
+
+    <h2>2. Docker Image 다운로드</h2>
+
+    <p>
+      먼저 문제에서 제공된 Docker Image를 다운로드했다.
+    </p>
+
+    <pre><code>docker pull dreamhackofficial/blue-whale:1</code></pre>
+
+    <p>
+      다운로드된 Image는 다음 명령어로 확인했다.
+    </p>
+
+    <pre><code>docker images</code></pre>
+
+    <p>
+      결과에서 다음 Image가 존재하는 것을 확인할 수 있었다.
+    </p>
+
+    <pre><code>dreamhackofficial/blue-whale:1</code></pre>
+
+
+    <h2>3. Docker Layer란?</h2>
+
+    <p>
+      Docker Image는 하나의 파일처럼 보이지만,
+      실제로는 여러 개의 Layer가 순서대로 쌓여 만들어진다.
+    </p>
+
+    <div class="flow">
+      Ubuntu 설치<br>
+      ↓<br>
+      Python 설치<br>
+      ↓<br>
+      Flag 추가<br>
+      ↓<br>
+      Flag 삭제<br>
+      ↓<br>
+      최종 Image
+    </div>
+
+    <p>
+      중요한 점은 뒤의 Layer에서 파일을 삭제하더라도
+      이전 Layer에는 파일의 흔적이 남아 있을 수 있다는 것이다.
+    </p>
+
+    <p>
+      따라서 최종 파일 시스템에서 Flag가 보이지 않더라도
+      과거 Layer를 조사하면 찾을 가능성이 있다.
+    </p>
+
+
+    <h2>4. Dive</h2>
+
+    <p>
+      Docker Image의 Layer를 분석하기 위해
+      <strong>dive</strong>라는 도구를 사용했다.
+    </p>
+
+    <pre><code>winget install --id wagoodman.dive</code></pre>
+
+    <p>
+      설치 후:
+    </p>
+
+    <pre><code>dive --version</code></pre>
+
+    <p>
+      설치 직후 명령어를 찾지 못하는 문제가 있었는데,
+      설치 과정에서 PATH 환경 변수가 변경되었기 때문이었다.
+    </p>
+
+    <p>
+      PowerShell을 완전히 종료한 후 다시 실행하니 정상적으로 사용할 수 있었다.
+    </p>
+
+
+    <h2>5. Docker Image 분석</h2>
+
+    <p>
+      다음 명령으로 Blue Whale Image를 Dive에서 열었다.
+    </p>
+
+    <pre><code>dive dreamhackofficial/blue-whale:1</code></pre>
+
+    <p>
+      Dive의 왼쪽에는 Docker Image를 구성하는 Layer가 표시되고,
+      오른쪽에는 해당 Layer 시점의 파일 시스템이 표시된다.
+    </p>
+
+
+    <h2>6. 수상한 Layer 발견</h2>
+
+    <p>
+      Layer를 하나씩 확인하던 중 다음 명령을 발견했다.
+    </p>
+
+    <pre><code>COPY ./deploy/flag /home/chall/flag</code></pre>
+
+    <p>
+      즉 원래는 다음 위치에 Flag 파일이 존재했다.
+    </p>
+
+    <pre><code>/home/chall/flag</code></pre>
+
+    <p>
+      이후 작업 디렉터리가 변경된다.
+    </p>
+
+    <pre><code>WORKDIR /home/chall</code></pre>
+
+    <p>
+      그리고 가장 중요한 명령어가 등장했다.
+    </p>
+
+    <pre><code>RUN touch `python3 -c "print(open('./flag', 'r').read())"`</code></pre>
+
+
+    <h2>7. 명령어 분석</h2>
+
+    <p>
+      처음에는 이 명령어가 상당히 복잡해 보였다.
+      하지만 안쪽부터 나누어 보면 이해하기 쉽다.
+    </p>
+
+    <pre><code>open('./flag', 'r').read()</code></pre>
+
+    <p>
+      이 부분은 <code>flag</code> 파일을 열고 내용을 읽는다.
+    </p>
+
+    <p>
+      그리고:
+    </p>
+
+    <pre><code>print(open('./flag', 'r').read())</code></pre>
+
+    <p>
+      Flag의 내용을 출력한다.
+    </p>
+
+    <p>
+      이 출력 결과가 바깥쪽의 <code>touch</code> 명령어의 인자로 전달된다.
+    </p>
+
+    <p>
+      예를 들어 Flag가 다음과 같다고 가정하면:
+    </p>
+
+    <pre><code>DH{example_flag}</code></pre>
+
+    <p>
+      실제로 실행되는 명령은 다음과 비슷해진다.
+    </p>
+
+    <pre><code>touch DH{example_flag}</code></pre>
+
+    <p>
+      즉 <strong>Flag의 값 자체를 이름으로 가지는 파일</strong>이 생성된다.
+    </p>
+
+
+    <h2>8. 그런데 파일이 왜 없었을까?</h2>
+
+    <p>
+      바로 다음 Layer에서 다음 명령어가 실행되고 있었다.
+    </p>
+
+    <pre><code>RUN rm *</code></pre>
+
+    <p>
+      현재 위치가 <code>/home/chall</code>이므로
+      해당 디렉터리의 파일들이 삭제된다.
+    </p>
+
+    <div class="flow">
+      flag 파일 존재<br>
+      ↓<br>
+      Flag 내용을 읽음<br>
+      ↓<br>
+      Flag 값을 파일 이름으로 생성<br>
+      ↓<br>
+      rm * 실행<br>
+      ↓<br>
+      파일 삭제
+    </div>
+
+    <p>
+      따라서 최종 Image에서는 해당 파일을 볼 수 없지만,
+      이전 Layer에는 파일이 생성되었던 흔적이 남아 있었다.
+    </p>
+
+
+    <h2>9. Flag 찾기</h2>
+
+    <p>
+      Dive에서 <code>touch</code> 명령이 실행된 Layer를 선택한 뒤
+      Layer 변경 사항을 확인했다.
+    </p>
+
+    <p>
+      그 결과 <code>/home/chall</code> 아래에서
+      <code>DH{...}</code> 형태의 파일 이름을 확인할 수 있었다.
+    </p>
+
+    <div class="note">
+      실제 Flag 값은 Write-up에서는 공개하지 않았다.
+    </div>
+
+
+    <h2>10. 막혔던 부분</h2>
+
+    <h3>Docker Engine이 실행되지 않음</h3>
+
+    <p>
+      처음에는 <code>docker version</code> 실행 시
+      Docker Linux Engine에 연결할 수 없다는 오류가 발생했다.
+    </p>
+
+    <p>
+      Docker Desktop을 실행하고 Engine이 정상적으로 동작한 이후 해결되었다.
+    </p>
+
+
+    <h3>WSL과 WSL2</h3>
+
+    <p>
+      Windows에서 Docker Desktop은 Linux Container를 실행하기 위해
+      일반적으로 WSL2 기반 환경을 사용한다는 것도 이번에 알게 되었다.
+    </p>
+
+
+    <h3>Dive 설치 후 실행되지 않음</h3>
+
+    <p>
+      Dive를 설치했음에도 PowerShell에서 명령어를 찾지 못했다.
+    </p>
+
+    <p>
+      설치 과정에서 PATH가 변경되었고,
+      기존 PowerShell에는 변경된 PATH가 반영되지 않았기 때문이었다.
+    </p>
+
+    <p>
+      PowerShell을 종료하고 다시 실행하여 해결했다.
+    </p>
+
+
+    <h2>11. 배운 점</h2>
+
+    <p>
+      이번 문제를 통해 Docker Image가 단순한 하나의 파일이 아니라
+      여러 Layer의 조합으로 이루어진다는 것을 직접 확인할 수 있었다.
+    </p>
+
+    <p>
+      특히 Dockerfile에서 파일을 삭제했다고 해서
+      이전 Layer의 데이터까지 반드시 사라지는 것은 아니라는 점이 흥미로웠다.
+    </p>
+
+    <p>
+      또한 복잡해 보이는 Shell 명령도 안쪽부터 하나씩 분석하면
+      실제 동작을 이해할 수 있다는 것을 배웠다.
+    </p>
+
+
+    <h2>12. 핵심 정리</h2>
+
+    <div class="note">
+      Docker Image에서 파일이 삭제되었더라도 이전 Layer에 흔적이 남을 수 있다.
+      <br><br>
+      Dive를 이용해 Layer를 확인하고,
+      Flag 내용을 파일 이름으로 만드는 touch 명령이 실행된 시점을 분석하여
+      삭제되기 전 Flag를 확인할 수 있었다.
+    </div>
+
+  </article>
+
+</main>
+
+
+<footer>
+  © 2026 yjt0725 · Built with GitHub Pages
+</footer>
+
+</body>
+</html>
