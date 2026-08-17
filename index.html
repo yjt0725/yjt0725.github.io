@@ -3,27 +3,493 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>yjt0725 Dev Log</title>
+
+  <title>yjt0725 | Dev Portfolio</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0b1120;
+      color: #e5e7eb;
+      line-height: 1.6;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* 상단 메뉴 */
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(11, 17, 32, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .nav-container {
+      max-width: 1100px;
+      margin: auto;
+      padding: 18px 24px;
+
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-size: 20px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 28px;
+      list-style: none;
+      color: #94a3b8;
+    }
+
+    .nav-links a:hover {
+      color: #38bdf8;
+    }
+
+    /* 공통 */
+
+    .container {
+      max-width: 1100px;
+      margin: auto;
+      padding-left: 24px;
+      padding-right: 24px;
+    }
+
+    section {
+      padding: 90px 0;
+    }
+
+    .section-title {
+      font-size: 30px;
+      margin-bottom: 12px;
+      color: #ffffff;
+    }
+
+    .section-desc {
+      color: #94a3b8;
+      margin-bottom: 40px;
+    }
+
+    /* 메인 */
+
+    .hero {
+      min-height: 82vh;
+      display: flex;
+      align-items: center;
+    }
+
+    .hero-content {
+      max-width: 760px;
+    }
+
+    .hello {
+      color: #38bdf8;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .hero h1 {
+      font-size: clamp(48px, 8vw, 82px);
+      line-height: 1.05;
+      color: white;
+      margin-bottom: 20px;
+    }
+
+    .hero h2 {
+      font-size: clamp(24px, 4vw, 38px);
+      color: #94a3b8;
+      margin-bottom: 25px;
+    }
+
+    .hero p {
+      max-width: 650px;
+      color: #94a3b8;
+      font-size: 18px;
+      margin-bottom: 35px;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: 0.2s;
+      display: inline-block;
+    }
+
+    .btn-primary {
+      background: #38bdf8;
+      color: #07111f;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      background: #7dd3fc;
+    }
+
+    .btn-secondary {
+      border: 1px solid #334155;
+      color: #cbd5e1;
+    }
+
+    .btn-secondary:hover {
+      border-color: #38bdf8;
+      color: #38bdf8;
+    }
+
+    /* 카드 */
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 22px;
+    }
+
+    .card {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      padding: 26px;
+      transition: 0.25s;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+      border-color: #38bdf8;
+    }
+
+    .card-label {
+      color: #38bdf8;
+      font-size: 14px;
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+
+    .card h3 {
+      color: #ffffff;
+      margin-bottom: 12px;
+      font-size: 21px;
+    }
+
+    .card p {
+      color: #94a3b8;
+      margin-bottom: 20px;
+    }
+
+    .tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 15px;
+    }
+
+    .tag {
+      font-size: 13px;
+      background: #172033;
+      color: #7dd3fc;
+      padding: 5px 10px;
+      border-radius: 20px;
+    }
+
+    .read-more {
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    /* About */
+
+    .about-box {
+      background: #111827;
+      border: 1px solid #1e293b;
+      padding: 30px;
+      border-radius: 14px;
+    }
+
+    .about-box p {
+      color: #94a3b8;
+      margin-bottom: 14px;
+    }
+
+    /* Footer */
+
+    footer {
+      border-top: 1px solid #1e293b;
+      padding: 35px 0;
+      text-align: center;
+      color: #64748b;
+      font-size: 14px;
+    }
+
+    /* 모바일 */
+
+    @media (max-width: 650px) {
+      .nav-links {
+        gap: 14px;
+        font-size: 14px;
+      }
+
+      .hero {
+        min-height: 75vh;
+      }
+
+      section {
+        padding: 65px 0;
+      }
+    }
+  </style>
 </head>
 
+
 <body>
-  <h1>yjt0725 Dev Log</h1>
 
-  <p>
-    개발 공부, 프로젝트, CTF 풀이를 기록하는 공간입니다.
-  </p>
+<!-- 상단 메뉴 -->
 
-  <hr>
+<nav>
+  <div class="nav-container">
 
-  <h2>CTF Write-ups</h2>
+    <div class="logo">
+      yjt0725
+    </div>
 
-  <h3>Dreamhack - Blue Whale</h3>
-  <p>Docker Layer를 분석하여 삭제된 Flag를 찾아본 기록</p>
+    <ul class="nav-links">
+      <li><a href="#about">About</a></li>
+      <li><a href="#projects">Projects</a></li>
+      <li><a href="#ctf">CTF</a></li>
+      <li>
+        <a href="https://github.com/yjt0725" target="_blank">
+          GitHub
+        </a>
+      </li>
+    </ul>
 
-  <h2>Projects</h2>
-  <p>프로젝트를 정리할 예정입니다.</p>
+  </div>
+</nav>
 
-  <h2>Study</h2>
-  <p>개발 공부 내용을 정리할 예정입니다.</p>
+
+<!-- 첫 화면 -->
+
+<header class="hero">
+
+  <div class="container">
+
+    <div class="hero-content">
+
+      <div class="hello">
+        Hello, I'm
+      </div>
+
+      <h1>
+        yjt0725
+      </h1>
+
+      <h2>
+        Computer Science Student
+      </h2>
+
+      <p>
+        개발하면서 직접 만들고, 문제를 해결하며 배운 내용을 기록합니다.
+        프로젝트와 보안 공부, CTF Write-up을 정리하는 개인 포트폴리오입니다.
+      </p>
+
+      <div class="buttons">
+
+        <a href="#projects" class="btn btn-primary">
+          Projects
+        </a>
+
+        <a href="#ctf" class="btn btn-secondary">
+          CTF Write-ups
+        </a>
+
+        <a
+          href="https://github.com/yjt0725"
+          target="_blank"
+          class="btn btn-secondary"
+        >
+          GitHub
+        </a>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</header>
+
+
+<!-- About -->
+
+<section id="about">
+
+  <div class="container">
+
+    <h2 class="section-title">
+      About Me
+    </h2>
+
+    <p class="section-desc">
+      배우고 직접 만들어보면서 기록합니다.
+    </p>
+
+    <div class="about-box">
+
+      <p>
+        컴퓨터공학을 공부하며 개발과 보안 분야를 경험하고 있습니다.
+      </p>
+
+      <p>
+        단순히 결과만 기록하기보다,
+        문제를 해결하면서 무엇을 몰랐고 어떻게 이해했는지를
+        남기는 것을 목표로 합니다.
+      </p>
+
+      <div class="tags">
+        <span class="tag">Development</span>
+        <span class="tag">Security</span>
+        <span class="tag">CTF</span>
+        <span class="tag">GitHub</span>
+      </div>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+<!-- Projects -->
+
+<section id="projects">
+
+  <div class="container">
+
+    <h2 class="section-title">
+      Projects
+    </h2>
+
+    <p class="section-desc">
+      직접 진행한 개발 프로젝트를 정리합니다.
+    </p>
+
+    <div class="grid">
+
+      <div class="card">
+
+        <div class="card-label">
+          PROJECT
+        </div>
+
+        <h3>
+          프로젝트 준비 중
+        </h3>
+
+        <p>
+          프로젝트의 개발 과정, 사용 기술,
+          문제 해결 과정을 이곳에 정리할 예정입니다.
+        </p>
+
+        <div class="tags">
+          <span class="tag">Coming Soon</span>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+<!-- CTF -->
+
+<section id="ctf">
+
+  <div class="container">
+
+    <h2 class="section-title">
+      CTF Write-ups
+    </h2>
+
+    <p class="section-desc">
+      CTF 문제를 풀면서 배운 내용을 기록합니다.
+    </p>
+
+    <div class="grid">
+
+      <div class="card">
+
+        <div class="card-label">
+          DREAMHACK
+        </div>
+
+        <h3>
+          Blue Whale
+        </h3>
+
+        <p>
+          Docker Image의 Layer 구조를 분석하여
+          삭제된 Flag의 흔적을 찾아가는 문제를 풀어본 기록입니다.
+        </p>
+
+        <div class="tags">
+          <span class="tag">Docker</span>
+          <span class="tag">Dive</span>
+          <span class="tag">CTF</span>
+        </div>
+
+        <br>
+
+        <span class="read-more">
+          Write-up 준비 중 →
+        </span>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+<!-- Footer -->
+
+<footer>
+
+  <div class="container">
+    © 2026 yjt0725 · Built with GitHub Pages
+  </div>
+
+</footer>
+
+
 </body>
 </html>
