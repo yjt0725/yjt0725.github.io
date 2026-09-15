@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Dreamhack XSS-1 문제의 원리와 풀이 과정을 쉬운 비유로 정리한 Write-up">
+
+  <title>Dreamhack XSS-1 | yjt0725</title>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0b1120;
+      color: #cbd5e1;
+      line-height: 1.8;
+    }
+    a { color: inherit; text-decoration: none; }
+    nav {
+      border-bottom: 1px solid #1e293b;
+      background: rgba(11, 17, 32, 0.95);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+    .nav-container {
+      max-width: 900px;
+      margin: auto;
+      padding: 18px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo { font-weight: 700; color: white; }
+    .back, .source-link { color: #38bdf8; }
+    main { max-width: 900px; margin: auto; padding: 70px 24px 120px; }
+    .category { color: #38bdf8; font-weight: 600; margin-bottom: 10px; }
+    h1 {
+      font-size: clamp(36px, 6vw, 56px);
+      line-height: 1.2;
+      color: white;
+      margin-bottom: 16px;
+    }
+    .subtitle { font-size: 20px; color: #94a3b8; margin-bottom: 20px; }
+    .meta { color: #64748b; margin-bottom: 45px; }
+    .tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 45px; }
+    .tag {
+      background: #172033;
+      color: #7dd3fc;
+      padding: 5px 11px;
+      border-radius: 20px;
+      font-size: 13px;
+    }
+    article { border-top: 1px solid #1e293b; padding-top: 40px; }
+    h2 { color: white; font-size: 28px; margin-top: 55px; margin-bottom: 18px; }
+    h3 { color: white; margin-top: 32px; margin-bottom: 12px; }
+    p { margin-bottom: 18px; }
+    strong { color: #e2e8f0; }
+    pre {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 18px;
+      margin: 20px 0;
+      overflow-x: auto;
+    }
+    code { font-family: Consolas, monospace; color: #7dd3fc; }
+    p code { background: #172033; padding: 2px 6px; border-radius: 5px; }
+    .note, .warning {
+      background: #111827;
+      padding: 18px 20px;
+      margin: 25px 0;
+      border-radius: 6px;
+    }
+    .note { border-left: 4px solid #38bdf8; }
+    .warning { border-left: 4px solid #f59e0b; }
+    .characters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+      margin: 25px 0;
+    }
+    .character {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .character strong { display: block; color: #7dd3fc; margin-bottom: 8px; }
+    .flow {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 24px;
+      margin: 25px 0;
+      text-align: center;
+      color: #94a3b8;
+    }
+    .flow strong { color: white; }
+    footer {
+      border-top: 1px solid #1e293b;
+      padding: 30px;
+      text-align: center;
+      color: #64748b;
+    }
+    @media (max-width: 650px) {
+      main { padding-top: 50px; }
+      .back { font-size: 14px; }
+    }
+  </style>
+</head>
+
+<body>
+<nav>
+  <div class="nav-container">
+    <a href="../index.html" class="logo">yjt0725</a>
+    <a href="../index.html#ctf" class="back">← CTF 목록으로</a>
+  </div>
+</nav>
+
+<main>
+  <div class="category">DREAMHACK · WEB HACKING WRITE-UP</div>
+  <h1>XSS-1</h1>
+  <p class="subtitle">‘편의점 알바와 쪽지 심부름’으로 이해하는 XSS</p>
+  <div class="meta">2026.09.16 · yjt0725</div>
+
+  <div class="tags">
+    <span class="tag">Web</span>
+    <span class="tag">XSS</span>
+    <span class="tag">JavaScript</span>
+    <span class="tag">Cookie</span>
+    <span class="tag">CTF</span>
+  </div>
+
+  <article>
+    <div class="warning">
+      이 글은 Dreamhack 실습 환경에서 공부한 내용을 정리한 기록입니다.
+      허가받지 않은 웹사이트에는 같은 방법을 사용하지 않습니다.
+    </div>
+
+    <h2>1. 문제 목표</h2>
+    <p>
+      이 문제의 목표는 웹페이지에 내가 작성한 자바스크립트를 실행시키고,
+      관리자 봇이 가진 쿠키를 내가 확인할 수 있는 장소로 보내는 것이다.
+    </p>
+    <p>
+      처음에는 낯선 용어가 많아 복잡해 보였지만,
+      전체 과정을 <strong>편의점과 알바생의 쪽지 심부름</strong>으로 바꾸어 생각하니 이해하기 쉬웠다.
+    </p>
+
+    <h2>2. 등장인물과 장소</h2>
+    <div class="characters">
+      <div class="character">
+        <strong>나 · 공격자</strong>
+        관리자만 가진 비밀 값인 플래그를 확인하려는 사람이다.
+      </div>
+      <div class="character">
+        <strong>웹 서버 · 편의점</strong>
+        손님의 메모를 보여주는 게시판과 누구나 볼 수 있는 낙서장이 있다.
+      </div>
+      <div class="character">
+        <strong>관리자 봇 · 철수</strong>
+        주머니인 쿠키에 플래그를 넣고 다니는 편의점 알바생이다.
+      </div>
+    </div>
+
+    <p><code>/vuln</code>은 입력한 내용을 보여주는 게시판이다.</p>
+    <p><code>/memo</code>는 누구나 내용을 확인할 수 있는 공용 낙서장이다.</p>
+    <p><code>/flag</code>는 관리자 봇에게 특정 페이지를 확인해 달라고 요청하는 곳이다.</p>
+
+    <h2>3. 취약점은 어디에 있었을까?</h2>
+    <p>
+      정상적인 게시판이라면 사용자가 입력한 글은 단순한 글자로 보여야 한다.
+      하지만 이 문제의 <code>/vuln</code> 페이지는 입력값을 안전하게 처리하지 않고 그대로 보여준다.
+    </p>
+    <p>
+      그래서 글 속에 자바스크립트가 들어 있으면 브라우저는 그것을 글자로만 보지 않고
+      실제 명령으로 실행한다. 비유하면 <strong>벽보에 적힌 명령을 읽는 사람이 그대로 따르게 되는 상황</strong>이다.
+    </p>
+
+    <div class="note">
+      사용자가 넣은 스크립트가 다른 방문자의 브라우저에서 실행되는 취약점을
+      <strong>XSS(Cross-Site Scripting)</strong>라고 한다.
+    </div>
+
+    <h2>4. 사용한 스크립트</h2>
+    <pre><code>&lt;script&gt;
+location.href = "/memo?memo=" + document.cookie;
+&lt;/script&gt;</code></pre>
+
+    <h3>코드를 쉬운 말로 바꾸면</h3>
+    <p>
+      <code>document.cookie</code>는 현재 페이지를 보고 있는 사람의 쿠키를 가져온다.
+      관리자 봇이 이 코드를 실행하면 관리자 봇의 쿠키가 선택된다.
+    </p>
+    <p>
+      <code>location.href</code>는 브라우저를 다른 주소로 이동시킨다.
+      쿠키 값을 주소 뒤에 붙여 <code>/memo</code>로 이동하면 그 값이 공용 낙서장에 기록된다.
+    </p>
+
+    <div class="note">
+      “이 쪽지를 읽으면 주머니 속 내용을 꺼내 공용 낙서장에 적어라.”
+    </div>
+
+    <h2>5. 공격 흐름</h2>
+    <div class="flow">
+      <strong>① 최면 쪽지 작성</strong><br>
+      쿠키를 낙서장으로 보내는 스크립트를 준비한다.<br><br>
+      ↓<br><br>
+      <strong>② 관리자에게 심부름 요청</strong><br>
+      <code>/flag</code>에 스크립트를 넣어 관리자 봇이 페이지를 방문하게 한다.<br><br>
+      ↓<br><br>
+      <strong>③ 관리자 브라우저에서 실행</strong><br>
+      관리자 봇이 <code>/vuln</code>을 열자 스크립트가 실행된다.<br><br>
+      ↓<br><br>
+      <strong>④ 쿠키가 낙서장에 기록</strong><br>
+      관리자 봇이 자신의 쿠키를 붙인 채 <code>/memo</code>로 이동한다.<br><br>
+      ↓<br><br>
+      <strong>⑤ 결과 확인</strong><br>
+      내가 <code>/memo</code>를 열어 기록된 값을 확인한다.
+    </div>
+
+    <p>
+      실제 플래그 값은 Write-up에 공개하지 않았다.
+    </p>
+
+    <h2>6. 왜 내 쿠키가 아니라 관리자 쿠키일까?</h2>
+    <p>
+      자바스크립트는 그 코드를 <strong>실제로 실행한 브라우저</strong>의 정보를 읽는다.
+      내가 페이지를 열면 내 쿠키가 선택되고, 관리자 봇이 열면 관리자 봇의 쿠키가 선택된다.
+    </p>
+    <p>
+      따라서 핵심은 관리자 쿠키를 내가 직접 읽는 것이 아니라,
+      관리자 봇이 스크립트를 실행하도록 만든 뒤 그 결과를 내가 볼 수 있는 곳으로 보내게 하는 것이다.
+    </p>
+
+    <h2>7. 어떻게 막을 수 있을까?</h2>
+    <h3>입력값을 화면에 안전하게 출력하기</h3>
+    <p>
+      사용자가 입력한 <code>&lt;script&gt;</code> 같은 문자열이 명령으로 실행되지 않고
+      글자 그대로 보이도록 바꾸어 출력해야 한다.
+    </p>
+
+    <h3>쿠키에 HttpOnly 설정하기</h3>
+    <p>
+      중요한 쿠키에 <code>HttpOnly</code> 속성을 사용하면 자바스크립트의
+      <code>document.cookie</code>로 해당 쿠키를 읽을 수 없다.
+    </p>
+
+    <h3>실행할 수 있는 스크립트 제한하기</h3>
+    <p>
+      CSP(Content Security Policy)를 알맞게 설정하면 허용하지 않은 스크립트가
+      실행되는 범위를 줄일 수 있다.
+    </p>
+
+    <h2>8. 배운 점</h2>
+    <p>
+      XSS는 단순히 화면에 경고창을 띄우는 기술이 아니었다.
+      다른 사용자의 브라우저에서 코드가 실행되면 그 사용자의 권한으로 동작할 수 있다는 점이 핵심이었다.
+    </p>
+    <p>
+      또 웹사이트가 사용자의 입력을 어떻게 화면에 보여주는지와
+      쿠키에 어떤 보호 설정이 적용되어 있는지가 중요하다는 것을 알게 되었다.
+    </p>
+
+    <h2>9. 핵심 정리</h2>
+    <div class="note">
+      관리자 봇이 내가 만든 스크립트를 실행하게 하고,
+      관리자 쿠키를 내가 확인할 수 있는 <code>/memo</code>로 보내도록 만든 문제였다.
+      사용자 입력을 그대로 페이지에 출력한 것이 취약점의 출발점이었다.
+    </div>
+
+    <p>
+      문제 링크:
+      <a class="source-link" href="https://dreamhack.io/wargame/challenges/28" target="_blank" rel="noopener noreferrer">
+        Dreamhack XSS-1
+      </a>
+    </p>
+  </article>
+</main>
+
+<footer>© 2026 yjt0725 · Built with GitHub Pages</footer>
+</body>
+</html>
