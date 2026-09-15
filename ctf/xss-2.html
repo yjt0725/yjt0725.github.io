@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Dreamhack XSS-2 워게임의 innerHTML 취약점과 img onerror 우회 과정을 정리한 Write-up">
+
+  <title>Dreamhack XSS-2 | yjt0725</title>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0b1120;
+      color: #cbd5e1;
+      line-height: 1.8;
+    }
+    a { color: inherit; text-decoration: none; }
+    nav {
+      border-bottom: 1px solid #1e293b;
+      background: rgba(11, 17, 32, 0.95);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+    .nav-container {
+      max-width: 900px;
+      margin: auto;
+      padding: 18px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo { font-weight: 700; color: white; }
+    .back, .source-link { color: #38bdf8; }
+    main { max-width: 900px; margin: auto; padding: 70px 24px 120px; }
+    .category { color: #38bdf8; font-weight: 600; margin-bottom: 10px; }
+    h1 {
+      font-size: clamp(36px, 6vw, 56px);
+      line-height: 1.2;
+      color: white;
+      margin-bottom: 16px;
+    }
+    .subtitle { font-size: 20px; color: #94a3b8; margin-bottom: 20px; }
+    .meta { color: #64748b; margin-bottom: 45px; }
+    .tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 45px; }
+    .tag {
+      background: #172033;
+      color: #7dd3fc;
+      padding: 5px 11px;
+      border-radius: 20px;
+      font-size: 13px;
+    }
+    article { border-top: 1px solid #1e293b; padding-top: 40px; }
+    h2 { color: white; font-size: 28px; margin-top: 55px; margin-bottom: 18px; }
+    h3 { color: white; margin-top: 32px; margin-bottom: 12px; }
+    p { margin-bottom: 18px; }
+    strong { color: #e2e8f0; }
+    pre {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 18px;
+      margin: 20px 0;
+      overflow-x: auto;
+    }
+    code { font-family: Consolas, monospace; color: #7dd3fc; }
+    p code, td code { background: #172033; padding: 2px 6px; border-radius: 5px; }
+    .note, .warning {
+      background: #111827;
+      padding: 18px 20px;
+      margin: 25px 0;
+      border-radius: 6px;
+    }
+    .note { border-left: 4px solid #38bdf8; }
+    .warning { border-left: 4px solid #f59e0b; }
+    .flow {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 24px;
+      margin: 25px 0;
+      text-align: center;
+      color: #94a3b8;
+    }
+    .flow strong { color: white; }
+    .table-wrap { overflow-x: auto; margin: 25px 0; }
+    table { width: 100%; border-collapse: collapse; background: #111827; }
+    th, td { border: 1px solid #1e293b; padding: 14px; text-align: left; }
+    th { color: white; background: #172033; }
+    footer {
+      border-top: 1px solid #1e293b;
+      padding: 30px;
+      text-align: center;
+      color: #64748b;
+    }
+    @media (max-width: 650px) {
+      main { padding-top: 50px; }
+      .back { font-size: 14px; }
+    }
+  </style>
+</head>
+
+<body>
+<nav>
+  <div class="nav-container">
+    <a href="../index.html" class="logo">yjt0725</a>
+    <a href="../index.html#wargame" class="back">← 워게임 목록으로</a>
+  </div>
+</nav>
+
+<main>
+  <div class="category">DREAMHACK · WARGAME WRITE-UP</div>
+  <h1>XSS-2</h1>
+  <p class="subtitle">innerHTML의 특징을 이해하고 img onerror로 우회하기</p>
+  <div class="meta">2026.09.16 · yjt0725</div>
+
+  <div class="tags">
+    <span class="tag">Web</span>
+    <span class="tag">XSS</span>
+    <span class="tag">innerHTML</span>
+    <span class="tag">onerror</span>
+    <span class="tag">Cookie</span>
+  </div>
+
+  <article>
+    <div class="warning">
+      이 글은 Dreamhack 워게임 실습 환경에서 공부한 내용을 정리한 기록입니다.
+      허가받지 않은 웹사이트에는 같은 방법을 사용하지 않습니다.
+    </div>
+
+    <h2>1. 문제 목표</h2>
+    <p>
+      XSS-2의 목표는 관리자 봇의 브라우저에서 자바스크립트를 실행해
+      봇이 가진 쿠키를 <code>/memo</code>에 기록하는 것이다.
+    </p>
+    <p>
+      XSS-1에서 사용했던 <code>&lt;script&gt;</code> 페이로드는 이번 문제에서 작동하지 않았다.
+      따라서 입력값이 화면에 들어가는 방식을 먼저 분석하고, 다른 실행 방법을 찾아야 했다.
+    </p>
+
+    <h2>2. 취약점 분석</h2>
+    <p><code>vuln.html</code>에서는 주소의 <code>param</code> 값을 읽어 다음과 같이 화면에 넣는다.</p>
+
+    <pre><code>var x = new URLSearchParams(location.search);
+document.getElementById('vuln').innerHTML = x.get('param');</code></pre>
+
+    <p>
+      <code>URLSearchParams</code>는 현재 주소의 쿼리스트링을 다루며,
+      <code>x.get('param')</code>은 그중 <code>param</code>의 값을 가져온다.
+      가져온 값은 <code>innerHTML</code>을 통해 <code>id="vuln"</code>인 영역에 HTML로 삽입된다.
+    </p>
+
+    <div class="flow">
+      <strong>주소의 param 값</strong><br>
+      ↓<br>
+      <strong>URLSearchParams로 읽기</strong><br>
+      ↓<br>
+      <strong>innerHTML로 페이지에 삽입</strong>
+    </div>
+
+    <p>
+      사용자 입력이 HTML로 해석되기 때문에 XSS가 가능한 구조이지만,
+      삽입된 모든 태그가 같은 방식으로 동작하는 것은 아니다.
+    </p>
+
+    <h2>3. script 태그가 실행되지 않은 이유</h2>
+    <pre><code>&lt;script&gt;alert(1)&lt;/script&gt;</code></pre>
+
+    <p>
+      처음에는 위 코드를 넣어 보았지만 실행되지 않았다.
+      <code>innerHTML</code>로 동적으로 삽입한 <code>&lt;script&gt;</code> 요소는
+      브라우저에서 실행되지 않기 때문이다.
+    </p>
+    <p>
+      이는 입력값 전체가 안전해졌다는 뜻은 아니다.
+      다른 HTML 태그와 그 태그의 이벤트 속성은 여전히 동작할 수 있다.
+    </p>
+
+    <div class="note">
+      <code>&lt;script&gt;</code>가 실행되지 않는 것은 별도의 필터가 태그를 삭제해서가 아니라,
+      <code>innerHTML</code>로 삽입된 script 요소의 실행 방식 때문이다.
+    </div>
+
+    <h2>4. 우회 방법 찾기</h2>
+    <p>
+      이미지가 불러와지지 않을 때 실행되는 <code>onerror</code> 이벤트를 이용했다.
+      존재하지 않는 이미지 주소를 주면 에러가 발생하고, 그 순간 이벤트 속성 안의 자바스크립트가 실행된다.
+    </p>
+
+    <pre><code>&lt;img src="x" onerror="alert(1)"&gt;</code></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>부분</th>
+            <th>역할</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>&lt;img&gt;</code></td>
+            <td>브라우저가 이미지로 처리하는 HTML 태그</td>
+          </tr>
+          <tr>
+            <td><code>src="x"</code></td>
+            <td>없는 이미지 주소를 사용해 로드 에러 발생</td>
+          </tr>
+          <tr>
+            <td><code>onerror</code></td>
+            <td>이미지 로드가 실패했을 때 자바스크립트 실행</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>5. 공격 페이로드</h2>
+    <pre><code>&lt;img src="x" onerror="location.href='/memo?memo=' + document.cookie"&gt;</code></pre>
+
+    <p><code>src="x"</code>는 이미지 로드 에러를 일부러 발생시킨다.</p>
+    <p><code>onerror="..."</code>는 에러가 발생했을 때 안쪽의 자바스크립트를 실행한다.</p>
+    <p>
+      <code>document.cookie</code>는 이 코드를 실행한 브라우저의 쿠키를 가져온다.
+      관리자 봇이 실행하면 봇이 가진 FLAG 쿠키가 선택된다.
+    </p>
+    <p>
+      <code>location.href</code>는 쿠키를 주소 뒤에 붙여 <code>/memo</code>로 이동한다.
+      그 결과 쿠키 값이 메모장에 기록된다.
+    </p>
+
+    <h2>6. 플래그 획득 과정</h2>
+    <div class="flow">
+      <strong>① /flag에 페이로드 입력</strong><br>
+      작성한 img 태그를 제출한다.<br><br>
+      ↓<br><br>
+      <strong>② 관리자 봇이 /vuln 방문</strong><br>
+      백엔드의 브라우저가 FLAG 쿠키를 가진 채 취약한 페이지를 연다.<br><br>
+      ↓<br><br>
+      <strong>③ 이미지 로드 실패</strong><br>
+      존재하지 않는 src 때문에 onerror가 발생한다.<br><br>
+      ↓<br><br>
+      <strong>④ 쿠키를 /memo로 전달</strong><br>
+      봇이 자신의 쿠키를 쿼리스트링에 붙여 메모 페이지로 이동한다.<br><br>
+      ↓<br><br>
+      <strong>⑤ /memo에서 결과 확인</strong><br>
+      기록된 <code>flag=DH{...}</code> 형태의 값을 확인해 제출한다.
+    </div>
+
+    <p>실제 플래그 값은 Write-up에 공개하지 않았다.</p>
+
+    <h2>7. /vuln과 /flag의 역할</h2>
+    <p>
+      내가 직접 <code>/vuln</code>을 열어 페이로드를 실행하면 내 브라우저의 쿠키만 읽는다.
+      관리자 봇의 쿠키를 얻으려면 <code>/flag</code>에 페이로드를 제출해
+      관리자 봇이 취약한 페이지를 방문하도록 해야 한다.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>페이지</th>
+            <th>역할</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>/vuln</code></td>
+            <td>입력한 HTML이 실제로 삽입되고 XSS가 발생하는 곳</td>
+          </tr>
+          <tr>
+            <td><code>/flag</code></td>
+            <td>관리자 봇에게 취약한 페이지를 방문하도록 요청하는 곳</td>
+          </tr>
+          <tr>
+            <td><code>/memo</code></td>
+            <td>전달된 쿠키 값을 공격자가 확인하는 곳</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>8. XSS-1과 달라진 점</h2>
+    <p>
+      XSS-1에서는 서버가 입력값을 응답에 직접 포함해 <code>&lt;script&gt;</code> 태그가 실행됐다.
+      XSS-2에서는 브라우저가 입력값을 <code>innerHTML</code>로 삽입하므로 같은 태그가 실행되지 않았다.
+    </p>
+    <p>
+      결국 취약점이 있다는 사실만 확인하는 데서 끝나지 않고,
+      입력이 페이지에 들어가는 방식과 브라우저가 각 태그를 처리하는 방식까지 살펴봐야 했다.
+    </p>
+
+    <h2>9. 방어 방법</h2>
+    <h3>innerHTML 사용 피하기</h3>
+    <p>
+      단순히 글자를 보여주는 목적이라면 <code>textContent</code>를 사용해
+      입력값이 HTML 태그로 해석되지 않도록 해야 한다.
+    </p>
+
+    <h3>허용할 HTML만 남기기</h3>
+    <p>
+      HTML 입력이 꼭 필요하다면 검증된 정화 도구를 사용해
+      이벤트 속성과 위험한 태그를 제거해야 한다.
+    </p>
+
+    <h3>쿠키 보호하기</h3>
+    <p>
+      중요한 쿠키에 <code>HttpOnly</code>를 적용하면 자바스크립트의
+      <code>document.cookie</code>로 해당 쿠키를 읽을 수 없다.
+    </p>
+
+    <h2>10. 배운 점</h2>
+    <p>
+      XSS-2를 통해 같은 XSS 문제라도 입력값이 삽입되는 위치와 방법에 따라
+      사용할 수 있는 페이로드가 달라진다는 것을 배웠다.
+    </p>
+    <p>
+      특히 <code>&lt;script&gt;</code> 태그가 실행되지 않는다고 해서 XSS가 막힌 것은 아니며,
+      HTML 이벤트 속성도 자바스크립트 실행 지점이 될 수 있다는 점을 확인했다.
+    </p>
+
+    <h2>11. 핵심 정리</h2>
+    <div class="note">
+      <code>param</code> 값이 <code>innerHTML</code>로 삽입되는 구조를 확인했다.
+      동적으로 삽입된 script 태그는 실행되지 않았기 때문에,
+      이미지 로드 실패 시 동작하는 <code>onerror</code> 이벤트로 우회했다.
+      관리자 봇의 쿠키를 <code>/memo</code>로 전달해 플래그를 확인했다.
+    </div>
+
+    <p>
+      문제 링크:
+      <a class="source-link" href="https://dreamhack.io/wargame/challenges/268" target="_blank" rel="noopener noreferrer">
+        Dreamhack XSS-2
+      </a>
+    </p>
+  </article>
+</main>
+
+<footer>© 2026 yjt0725 · Built with GitHub Pages</footer>
+</body>
+</html>
